@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Advanced OCR-Resistant CAPTCHA</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+            padding-top: 50px;
+            background-color: #2C2F33;
+            color: #fff;
+        }
+
+        canvas {
+            border-radius: 8px;
+            margin-bottom: 20px;
+            background-color: #23272A;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.5);
+        }
+
+        input[type="text"], input[type="number"] {
+            font-size: 16px;
+            padding: 10px;
+            border: 2px solid #7289DA;
+            background-color: #23272A;
+            border-radius: 4px;
+            width: 200px;
+            text-align: center;
+            color: #fff;
+            margin-top: 10px;
+        }
+
+        button {
+            font-size: 16px;
+            padding: 10px 20px;
+            background-color: #7289DA;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #677BC4;
+        }
+
+        #feedback {
+            margin-top: 15px;
+            font-size: 18px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .challenge-section {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="text-captcha" class="challenge-section">
+            <canvas id="text-captcha-canvas" width="300" height="100"></canvas>
+            <input type="text" id="word-answer" placeholder="Type the word here" />
+            <button onclick="verifyTextCaptcha()">Submit Answer</button>
+        </div>
+
+        <div id="math-challenge" class="challenge-section">
+            <canvas id="math-captcha-canvas" width="300" height="100"></canvas>
+            <input type="number" id="math-answer" placeholder="Answer for the math problem" />
+            <button onclick="verifyMath()">Submit Math Answer</button>
+        </div>
+
+        <div id="key-challenge" class="challenge-section">
+            <canvas id="key-captcha-canvas" width="300" height="100"></canvas>
+            <p>Press the key now.</p>
+        </div>
+
+        <p id="feedback"></p>
+    </div>
+
+    <script>
+      function randomChar(characters) {
+    return characters.charAt(Math.floor(Math.random() * characters.length));
+}
+
+function generateRandomWord(length) {
+    var result = '';
+    var letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+    var numbers = '0123456789';
+    var specialChars = '!@#$%^&*()-+=[]|/.,<>`~';
+    for (var i = 0; i < length; i++) {
+        var charSet = [letters, numbers, specialChars][Math.floor(Math.random() * 3)];
+        result += randomChar(charSet);
+    }
+    return result;
+}
+
+function drawDistortedText(canvasId, text) {
+    var canvas = document.getElementById(canvasId);
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = '20px Arial';
+    ctx.fillStyle = '#fff';
+
+    // Draw the text with some distortion
+    for (let i = 0; i < text.length; i++) {
+        ctx.save();
+        ctx.translate(10 + (i * 20), 50);
+        ctx.rotate((Math.random() - 0.5) * 0.4);
+        ctx.fillText(text[i], 0, 0);
+        ctx.restore();
+    }
+
+    // Draw random lines over the text
+    for (let i = 0; i < 5; i++) {
+        ctx.beginPath();
+        ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+        ctx.lineTo(Math.random() * canvas.width, Math.random() * canvas.height);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#7289DA';
+        ctx.stroke();
+    }
+}
+
+var captchaWord, mathProblem, requiredKey;
+
+function startCaptcha() {
+    captchaWord = generateRandomWord(6);
+    drawDistortedText("text-captcha-canvas", captchaWord);
+    document.getElementById('text-captcha').style.display = 'block';
+}
+
+function verifyTextCaptcha() {
+    var userAnswer = document.getElementById('word-answer').value;
+    if (userAnswer === captchaWord) {
+        document.getElementById('feedback').innerHTML = "Correct! Now solve the math problem.";
+        document.getElementById('text-captcha').style.display = 'none';
+        showMathChallenge();
+    } else {
+        resetCaptcha("Incorrect, starting over.");
+    }
+}
+
+function generateMathProblem() {
+    var num1 = Math.floor(Math.random() * 10) + 1;
+    var num2 = Math.floor(Math.random() * 10) + 1;
+    return {
+        question: num1 + " + " + num2 + " = ?",
+        answer: num1 + num2
+    };
+}
+
+function showMathChallenge() {
+    mathProblem = generateMathProblem();
+    drawDistortedText("math-captcha-canvas", mathProblem.question);
+    document.getElementById('math-challenge').style.display = 'block';
+}
+
+function verifyMath() {
+    var answer = parseInt(document.getElementById('math-answer').value);
+    if (answer === mathProblem.answer) {
+        document.getElementById('feedback').innerHTML = "Correct! Now press the key.";
+        document.getElementById('math-challenge').style.display = 'none';
+        showKeyChallenge();
+    } else {
+        resetCaptcha("Incorrect math answer, starting over.");
+    }
+}
+
+function showKeyChallenge() {
+    requiredKey = String.fromCharCode(65 + Math.floor(Math.random() * 26)); // Random letter
+    drawDistortedText("key-captcha-canvas", "Press '" + requiredKey + "' key");
+    document.getElementById('key-challenge').style.display = 'block';
+    document.addEventListener('keydown', checkKeyPress);
+}
+
+function checkKeyPress(event) {
+    if (event.key.toUpperCase() === requiredKey) {
+        document.getElementById('feedback').innerHTML = "Correct key pressed. CAPTCHA complete.";
+        document.removeEventListener('keydown', checkKeyPress);
+        document.getElementById('key-challenge').style.display = 'none';
+        // Additional actions here (e.g., form submission)
+    } else {
+        resetCaptcha("Incorrect key, starting over.");
+    }
+}
+
+function resetCaptcha(message) {
+    document.getElementById('feedback').innerHTML = message;
+    document.getElementById('math-challenge').style.display = 'none';
+    document.getElementById('key-challenge').style.display = 'none';
+    startCaptcha();
+}
+
+startCaptcha(); // Initialize the first challenge
+
+    </script>
+</body>
+</html>
